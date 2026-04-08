@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bottom Cut &amp; Combine PDF Pages</title>
+  <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', Arial, sans-serif;
+      min-height: 100vh;
+      background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+      display: flex; align-items: flex-start; justify-content: center;
+      padding: 40px 16px; color: #e2e8f0;
+    }
+    .card {
+      background: rgba(255,255,255,0.06);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 36px; padding: 36px 32px;
+      width: 100%; max-width: 620px;
+      box-shadow: 0 25px 60px rgba(0,0,0,0.4);
+    }
+    .header { margin-bottom: 28px; }
+    .header h1 {
+      font-size: 1.55rem; font-weight: 700;
+      background: linear-gradient(90deg, #a78bfa, #60a5fa);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text; margin-bottom: 8px;
+    }
+    .header p { font-size: 0.88rem; color: #94a3b8; line-height: 1.6; }
+    .field { margin-bottom: 20px; }
+    label {
+      display: block; font-size: 0.78rem; font-weight: 600;
+      color: #a78bfa; letter-spacing: 0.06em;
+      text-transform: uppercase; margin-bottom: 8px;
+    }
+    input[type="file"] {
+      width: 100%; padding: 12px 14px;
+      background: rgba(255,255,255,0.07);
+      border: 1.5px solid rgba(255,255,255,0.15);
+      border-radius: 12px; color: #e2e8f0; font-size: 0.9rem;
+      cursor: pointer; transition: border-color 0.2s;
+    }
+    input[type="file"]:hover { border-color: #a78bfa; }
+    input[type="number"] {
+      width: 100%; padding: 11px 14px;
+      background: rgba(255,255,255,0.07);
+      border: 1.5px solid rgba(255,255,255,0.15);
+      border-radius: 12px; color: #e2e8f0; font-size: 0.95rem;
+      outline: none; transition: border-color 0.2s, box-shadow 0.2s;
+      -moz-appearance: textfield;
+    }
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button { opacity: 1; }
+    input[type="number"]:focus {
+      border-color: #a78bfa;
+      box-shadow: 0 0 0 3px rgba(167,139,250,0.15);
+    }
+    select {
+      width: 100%; padding: 11px 14px;
+      background: rgba(20,17,50,0.95);
+      border: 1.5px solid rgba(255,255,255,0.15);
+      border-radius: 12px; color: #e2e8f0; font-size: 0.95rem;
+      outline: none; cursor: pointer; transition: border-color 0.2s;
+    }
+    select:focus { border-color: #a78bfa; }
+    input[type="range"] {
+      width: 100%; -webkit-appearance: none;
+      height: 6px; border-radius: 6px;
+      background: rgba(255,255,255,0.15); outline: none; cursor: pointer;
+      margin-top: 4px;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 20px; height: 20px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #a78bfa, #60a5fa);
+      cursor: pointer; box-shadow: 0 2px 8px rgba(167,139,250,0.5);
+      transition: transform 0.15s;
+    }
+    input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.15); }
+    .slider-val { display: block; margin-top: 8px; font-size: 0.85rem; color: #94a3b8; }
+    .slider-val strong { color: #c4b5fd; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .divider { border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 24px 0; }
+    .note-box {
+      background: rgba(96,165,250,0.08);
+      border-left: 3px solid #60a5fa;
+      border-radius: 8px; padding: 12px 16px;
+      font-size: 0.84rem; color: #94a3b8; line-height: 1.6; margin-bottom: 22px;
+    }
+    .note-box strong { color: #93c5fd; }
+    button#downloadBtn {
+      width: 100%; padding: 14px;
+      background: linear-gradient(135deg, #7c3aed, #2563eb);
+      color: #fff; font-size: 1rem; font-weight: 700;
+      border: none; border-radius: 14px; cursor: pointer;
+      letter-spacing: 0.04em;
+      transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
+      box-shadow: 0 6px 20px rgba(124,58,237,0.4);
+    }
+    button#downloadBtn:hover:not(:disabled) {
+      opacity: 0.9; transform: translateY(-1px);
+      box-shadow: 0 10px 28px rgba(124,58,237,0.5);
+    }
+    button#downloadBtn:active:not(:disabled) { transform: translateY(0); }
+    button#downloadBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .msg {
+      margin-top: 16px; padding: 12px 16px; border-radius: 10px;
+      font-size: 0.88rem; font-weight: 500;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: #94a3b8; min-height: 46px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .msg.success { color: #4ade80; border-color: rgba(74,222,128,0.25); background: rgba(74,222,128,0.06); }
+    .msg.error   { color: #f87171; border-color: rgba(248,113,113,0.25); background: rgba(248,113,113,0.06); }
+    .msg.working { color: #60a5fa; border-color: rgba(96,165,250,0.25); background: rgba(96,165,250,0.06); }
+    .msg.info    { color: #a78bfa; border-color: rgba(167,139,250,0.25); background: rgba(167,139,250,0.06); }
+    .spinner {
+      width: 16px; height: 16px; flex-shrink: 0;
+      border: 2px solid rgba(96,165,250,0.25);
+      border-top-color: #60a5fa; border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* A4 toggle */
+    .toggle-field { margin-bottom: 0; }
+    .toggle-label {
+      display: flex; align-items: center; gap: 12px;
+      cursor: pointer; text-transform: none;
+      font-size: 0.88rem; font-weight: 400; letter-spacing: 0;
+      color: #cbd5e1;
+    }
+    .toggle-label input[type=checkbox] { display: none; }
+    .toggle-track {
+      position: relative; width: 40px; height: 22px; flex-shrink: 0;
+      background: rgba(255,255,255,0.12);
+      border-radius: 11px; transition: background 0.25s;
+    }
+    .toggle-thumb {
+      position: absolute; top: 3px; left: 3px;
+      width: 16px; height: 16px; border-radius: 50%;
+      background: #94a3b8; transition: transform 0.25s, background 0.25s;
+    }
+    .toggle-label input:checked + .toggle-track { background: #7c3aed; }
+    .toggle-label input:checked + .toggle-track .toggle-thumb {
+      transform: translateX(18px); background: #fff;
+    }
+    .toggle-text strong { color: #c4b5fd; }
+    .a4-badge {
+      display: inline-block; padding: 2px 8px;
+      background: rgba(167,139,250,0.15); border: 1px solid rgba(167,139,250,0.3);
+      border-radius: 6px; font-size: 0.78rem; color: #a78bfa; font-weight: 600;
+      margin-left: 6px; vertical-align: middle;
+    }
+    .crop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 4px; }
+    .fixed-badges { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 4px; }
+    .fixed-crop-info {
+      display: flex; align-items: center; gap: 10px;
+      background: rgba(167,139,250,0.08);
+      border: 1px solid rgba(167,139,250,0.2);
+      border-radius: 12px; padding: 12px 14px;
+      font-size: 0.84rem; color: #cbd5e1;
+    }
+    .fixed-crop-info .crop-icon { font-size: 1rem; color: #a78bfa; flex-shrink: 0; }
+    .fixed-crop-info strong { color: #c4b5fd; }
+    @media (max-width: 560px) { .fixed-badges { grid-template-columns: 1fr; } }
+    @media (max-width: 560px) { .grid { grid-template-columns: 1fr; } .crop-grid { grid-template-columns: 1fr; } .card { padding: 24px 18px; } }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="header">
+    <h1>Combine PDF Pages</h1>
+    <p>Upload a PDF, group <em>all</em> pages into combined A4 output pages — every N pages become one A4 page. Bottom of each page is trimmed by <strong>650 pt</strong>.</p>
+  </div>
+
+  <div class="field">
+    <label for="pdfFile">Upload PDF File</label>
+    <input id="pdfFile" type="file" accept="application/pdf" />
+  </div>
+
+  <div class="fixed-badges">
+    <div class="fixed-crop-info">
+      <span class="crop-icon">&#9660;</span>
+      <span>Bottom crop fixed at <strong>650 pt</strong></span>
+    </div>
+    <div class="fixed-crop-info">
+      <span class="crop-icon">&#128196;</span>
+      <span>Output size fixed at <strong>A4</strong> (595 &times; 842 pt)</span>
+    </div>
+  </div>
+
+  <hr class="divider" />
+
+  <div class="field">
+    <label for="countPages">Pages per Group (combined into 1)</label>
+    <select id="countPages">
+      <option value="2">Every 2 pages &rarr; 1 combined page</option>
+      <option value="3">Every 3 pages &rarr; 1 combined page</option>
+      <option value="4" selected>Every 4 pages &rarr; 1 combined page</option>
+      <option value="5">Every 5 pages &rarr; 1 combined page</option>
+      <option value="6">Every 6 pages &rarr; 1 combined page</option>
+    </select>
+  </div>
+
+  <div class="note-box">
+    <strong>Example:</strong> 12-page PDF with group size <strong>4</strong> &rarr; output is <strong>3 pages</strong>: pages 1&ndash;4 combined, 5&ndash;8 combined, 9&ndash;12 combined. Remaining pages (if not divisible) are grouped as a final combined page.
+  </div>
+
+  <button id="downloadBtn">Create &amp; Download PDF</button>
+  <div class="msg info" id="msg">Upload a PDF file to begin.</div>
+</div>
+
+<script>
+  // Use pinned pdf-lib@1.17.1 (loaded from CDN above as window.PDFLib)
+  var PDFDocument = PDFLib.PDFDocument;
+
+  var storedBytes = null; // Uint8Array - safe to reuse
+
+  var elFile   = document.getElementById('pdfFile');
+  var elCount  = document.getElementById('countPages');
+  var elBtn    = document.getElementById('downloadBtn');
+  var elMsg    = document.getElementById('msg');
+
+  function setMsg(html, type) {
+    elMsg.className = 'msg ' + (type || '');
+    elMsg.innerHTML = html;
+  }
+
+  function showWorking(text) {
+    elMsg.className = 'msg working';
+    elMsg.innerHTML = '<div class="spinner"></div><span>' + text + '</span>';
+  }
+
+
+  elFile.addEventListener('change', function (e) {
+    var file = e.target.files[0];
+    if (!file) {
+      storedBytes = null;
+      setMsg('Upload a PDF file to begin.', 'info');
+      return;
+    }
+    var reader = new FileReader();
+    reader.onload = function (evt) {
+      // Store as Uint8Array so we can safely slice/copy each time
+      storedBytes = new Uint8Array(evt.target.result);
+      // Validate it's a real PDF
+      PDFDocument.load(storedBytes.slice(0)).then(function (doc) {
+        var n = doc.getPageCount();
+        setMsg('&#10003; Loaded: <strong>' + file.name + '</strong> &mdash; ' + n + ' page' + (n !== 1 ? 's' : ''), 'success');
+      }).catch(function () {
+        storedBytes = null;
+        setMsg('&#10007; Invalid or corrupted PDF file.', 'error');
+      });
+    };
+    reader.onerror = function () {
+      storedBytes = null;
+      setMsg('&#10007; Could not read the file.', 'error');
+    };
+    reader.readAsArrayBuffer(file);
+  });
+
+  async function buildPdf() {
+    if (!storedBytes) throw new Error('Please upload a PDF file first.');
+
+    var cutPt    = 650;    // bottom crop fixed at 650 pt
+    var topCutPt = 0;      // no top crop
+    var count    = parseInt(elCount.value, 10) || 4;
+    var useA4    = true;   // always A4 output
+    var A4W      = 595.28; // A4 width in PDF points
+    var A4H      = 841.89; // A4 height in PDF points
+
+    // Fresh copy each time to avoid detached-buffer issues
+    var srcDoc = await PDFDocument.load(storedBytes.slice(0));
+    var total  = srcDoc.getPageCount();
+
+    var outDoc   = await PDFDocument.create();
+    var pageIdx  = 0; // 0-based index into source pages
+
+    // Helper: embed one source page with top+bottom crop
+    async function embedCropped(srcPage) {
+      var pw      = srcPage.getWidth();
+      var ph      = srcPage.getHeight();
+      var safeBot = Math.min(cutPt,    Math.max(0, ph - 20));
+      var safeTop = Math.min(topCutPt, Math.max(0, ph - safeBot - 20));
+      var visH    = ph - safeBot - safeTop;
+      var emb     = await outDoc.embedPage(srcPage, {
+        left: 0, bottom: safeBot, right: pw, top: ph - safeTop
+      });
+      return { emb: emb, w: pw, h: visH };
+    }
+
+    // Group ALL pages in chunks of 'count'
+    while (pageIdx < total) {
+      var groupSize = Math.min(count, total - pageIdx); // last group may be smaller
+      var segs = [];
+      var maxW = 0, totalH = 0;
+
+      for (var j = 0; j < groupSize; j++) {
+        var seg = await embedCropped(srcDoc.getPage(pageIdx + j));
+        segs.push(seg);
+        if (seg.w > maxW) maxW = seg.w;
+        totalH += seg.h;
+      }
+
+      if (useA4) {
+        var scaleC  = A4W / maxW;
+        var bigPage = outDoc.addPage([A4W, A4H]);
+        var drawYC  = A4H;
+        for (var s = 0; s < segs.length; s++) {
+          drawYC -= segs[s].h * scaleC;
+          bigPage.drawPage(segs[s].emb, {
+            x: 0, y: drawYC,
+            width: segs[s].w * scaleC, height: segs[s].h * scaleC
+          });
+        }
+      } else {
+        var bigPage = outDoc.addPage([maxW, totalH]);
+        var drawY   = totalH;
+        for (var s = 0; s < segs.length; s++) {
+          drawY -= segs[s].h;
+          bigPage.drawPage(segs[s].emb, {
+            x: 0, y: drawY,
+            width: segs[s].w, height: segs[s].h
+          });
+        }
+      }
+
+      pageIdx += groupSize;
+    }
+
+    return await outDoc.save();
+  }
+
+  elBtn.addEventListener('click', function () {
+    elBtn.disabled = true;
+    showWorking('Processing PDF&hellip; please wait');
+
+    buildPdf().then(function (bytes) {
+      var blob = new Blob([bytes], { type: 'application/pdf' });
+      var url  = URL.createObjectURL(blob);
+      var a    = document.createElement('a');
+      a.href     = url;
+      a.download = 'bottom-cut-combined.pdf';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function () { URL.revokeObjectURL(url); }, 5000);
+      setMsg('&#10003; PDF created and downloaded successfully!', 'success');
+      elBtn.disabled = false;
+    }).catch(function (err) {
+      setMsg('&#10007; Error: ' + err.message, 'error');
+      console.error('[PDF Build Error]', err);
+      elBtn.disabled = false;
+    });
+  });
+</script>
+</body>
+</html>
